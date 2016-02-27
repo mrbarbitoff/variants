@@ -37,7 +37,7 @@ pph_converter = {'D': 'Damaging', 'P': 'Possibly damaging', 'B': 'Benign', '-': 
 mt_converter = {'A': 'Disease causing (auto)', 'D': 'Disease causing', 'N': 'Polymorphism', 'P' : 'Polymorphism (auto)', '-': '-'}
 ma_converter = {'H': 'High', 'M': 'Medium', 'N': 'Neutral', 'L': 'Low', '-': '-'}
 fhmm_converter = sift_converter
-
+clnv_sig = {0: 'Uncertain significance', 1: 'Not provided', 2: 'Benign', 3: 'Likely benign', 4: 'Likely pathogenic', 5: 'Pathogenic', 6: 'Drug response', 7: 'MHC', 255: 'Other'} 
 
 # Getting files
 try:
@@ -80,7 +80,7 @@ with open(fathmm, 'r') as fh:
 
 with open(vcf, 'r') as ifile:
     with open(output, 'w') as ofile:
-        ofile.write('Gene,Chromosome,Position,rsID,REF,ALT,EffType,SIFT,Polyphen2b,MutationTaster,MutationAssessor,FATHMM,fathmm-MKL,AF,')
+        ofile.write('Gene,Chromosome,Position,rsID,REF,ALT,EffType,OMIM,ClinVar,SIFT,Polyphen2b,MutationTaster,MutationAssessor,FATHMM,fathmm-MKL,AF,')
         for line in ifile:
             if line.startswith('#'):
                 if 'CHROM' in line:
@@ -109,9 +109,12 @@ with open(vcf, 'r') as ifile:
             af = re.findall('AF=(\d.\d+)', line)[0]
             snpeff = re.findall('EFF=([A-Z0-9_]+)', line)[0]
             gene = content[7].split('|')[4]
+            omim = '"=HYPERLINK(""http://www.omim.org/search?index=entry&sort=score+desc%2C+prefix_sort+desc&start=1&limit=10&search=' +  re.findall('rs\d+', content[2])[0] + '"",""OMIM record"")"' if (';OM' in line and 'rs' in content[2]) else '-'
+            clinvar = int(re.findall('CLNSIG=(\d+)', line)[0]) if 'CLNSIG' in line else '-'
+            clv_link = '"=HYPERLINK(""http://www.ncbi.nlm.nih.gov/clinvar/?term=' + re.findall('rs\d+', content[2])[0] + '"",""' + clnv_sig[clinvar] + '"")"' if ('CLNSIG' in line and 'rs' in content[2]) else '-'
             content[2] = content[2].replace(';', ':')
             content[2] = re.sub('rs(\d+)(.*)', 
                                 '"=HYPERLINK(""http://ncbi.nlm.nih.gov/projects/SNP/snp_ref.cgi?rs=\g<1>"",""rs\g<1>\g<2>"")"', 
                                  content[2])
-            output_csv_string = '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' % (gene, ','.join(content[:5]), snpeff, sift_converter[sift], pph_converter[pph], mt_converter[mt], ma_converter[ma], fhmm_converter[fhmm], mkl, af, gt(line))
+            output_csv_string = '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' % (gene, ','.join(content[:5]), snpeff, omim, clv_link, sift_converter[sift], pph_converter[pph], mt_converter[mt], ma_converter[ma], fhmm_converter[fhmm], mkl, af, gt(line))
             ofile.write(output_csv_string)
