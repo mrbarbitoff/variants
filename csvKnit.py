@@ -108,7 +108,10 @@ with open(vcf, 'r') as ifile:
             # Grepping allele frequency for given variant and making final csv-string
             af = re.findall('AF=(\d.\d+)', line)[0]
             snpeff = re.findall('EFF=([A-Z0-9_]+)', line)[0]
-            gene = content[7].split('|')[5]
+            gene = content[7].split('|')[4]
             content[2] = content[2].replace(';', ':')
-            output_csv_string = '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' % (gene, ','.join(content[:5]), snpeff, sift_converter[sift], pph_converter[pph], mt_converter[mt], ma_converter[ma], fhmm_converter[fhmm], mkl, af, gt(line))
+            content[2] = re.sub('rs(\d+)(.*)', 
+                                '"=HYPERLINK(""http://ncbi.nlm.nih.gov/projects/SNP/snp_ref.cgi?rs=\g<1>"",""rs\g<1>\g<2>"")"', 
+                                 content[2])
+            output_csv_string = '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' % (gene, ','.join(content[:5]), snpeff, sift_converter[sift], pph_converter[pph], mt_converter[mt], ma_converter[ma], fhmm_converter[fhmm], mkl, af, gt(line))
             ofile.write(output_csv_string)
