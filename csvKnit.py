@@ -39,6 +39,13 @@ ma_converter = {'H': 'High', 'M': 'Medium', 'N': 'Neutral', 'L': 'Low', '-': '-'
 fhmm_converter = sift_converter
 clnv_sig = {0: 'Uncertain significance', 1: 'Not provided', 2: 'Benign', 3: 'Likely benign', 4: 'Likely pathogenic', 5: 'Pathogenic', 6: 'Drug response', 7: 'MHC', 255: 'Other'} 
 
+
+# Scoring system
+def score(variant):
+    score += sum([pathogenicity[i] for i in variant[2:8]])
+    pass
+
+
 # Getting files
 try:
     vcf, fathmm, output = sys.argv[1:]
@@ -80,7 +87,7 @@ with open(fathmm, 'r') as fh:
 
 with open(vcf, 'r') as ifile:
     with open(output, 'w') as ofile:
-        ofile.write('Gene,Chromosome,Position,rsID,REF,ALT,EffType,OMIM,ClinVar,SIFT,Polyphen2b,MutationTaster,MutationAssessor,FATHMM,fathmm-MKL,AF,')
+        ofile.write('Gene,Chromosome,Position,rsID,REF,ALT,EffType,OMIM,CV link, CV significance,SIFT,Polyphen2b,MutationTaster,MutationAssessor,FATHMM,fathmm-MKL,1000G-AF,ExAc-AF,ourAF')
         for line in ifile:
             if line.startswith('#'):
                 if 'CHROM' in line:
@@ -106,15 +113,14 @@ with open(vcf, 'r') as ifile:
             else:
                 mkl = '-'
             # Grepping allele frequency for given variant and making final csv-string
-            af = re.findall('AF=(\d.\d+)', line)[0]
+            KG_af = re.findall('1000G.*?AF=(\d\.[\de-]+)', line)[0] if '1000G' in line else '-'
+            ExAc_af = re.findall('ExAC.*AF=(\d\.[\de-]+)', line)[0] if 'ExAC' in line else '-'
+            our_af = re.findall('AF=(\d\.\d+)', line)[0] if 'AF=' in line else '-'
             snpeff = re.findall('EFF=([A-Z0-9_]+)', line)[0]
             gene = content[7].split('|')[4]
-            omim = '"=HYPERLINK(""http://www.omim.org/search?index=entry&sort=score+desc%2C+prefix_sort+desc&start=1&limit=10&search=' +  re.findall('rs\d+', content[2])[0] + '"",""OMIM record"")"' if (';OM' in line and 'rs' in content[2]) else '-'
-            clinvar = int(re.findall('CLNSIG=(\d+)', line)[0]) if 'CLNSIG' in line else '-'
-            clv_link = '"=HYPERLINK(""http://www.ncbi.nlm.nih.gov/clinvar/?term=' + re.findall('rs\d+', content[2])[0] + '"",""' + clnv_sig[clinvar] + '"")"' if ('CLNSIG' in line and 'rs' in content[2]) else '-'
-            content[2] = content[2].replace(';', ':')
-            content[2] = re.sub('rs(\d+)(.*)', 
-                                '"=HYPERLINK(""http://ncbi.nlm.nih.gov/projects/SNP/snp_ref.cgi?rs=\g<1>"",""rs\g<1>\g<2>"")"', 
-                                 content[2])
-            output_csv_string = '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' % (gene, ','.join(content[:5]), snpeff, omim, clv_link, sift_converter[sift], pph_converter[pph], mt_converter[mt], ma_converter[ma], fhmm_converter[fhmm], mkl, af, gt(line))
+            omim = 'http://www.omim.org/search?index=entry&sort=score+desc%2C+prefix_sort+desc&start=1&limit=10&search=' + re.findall('rs\d+', content[2])[0] if (';OM' in line and 'rs' in content[2]) else '-'
+            clv_link = 'http://www.ncbi.nlm.nih.gov/clinvar/?term=' + re.findall('rs\d+', content[2])[0] if ('CLNSIG' in line and 'rs' in content[2]) else '-'
+            signif = clnv_sig[int(re.findall('CLNSIG=(\d+)', line)[0])] if 'CLNSIG' in line else '-'
+            content[2] = 'http://ncbi.nlm.nih.gov/projects/SNP/snp_ref.cgi?rs=' + re.findall('rs(\d+)', content[2])[0] if 'rs' in content[2] else '-'
+            output_csv_string = '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' % (gene, ','.join(content[:5]), snpeff, omim, clv_link, signif, sift_converter[sift], pph_converter[pph], mt_converter[mt], ma_converter[ma], fhmm_converter[fhmm], mkl, KG_af, ExAc_af, our_af, gt(line))
             ofile.write(output_csv_string)
